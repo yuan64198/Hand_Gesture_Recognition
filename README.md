@@ -11,3 +11,6 @@
 For example,
 
 `python train.py --mode test --checkpoint ./checkpoints/checkpoint_200.pth`
+
+## Dataset
+SmartWatch Gestures Dataset: https://tev.fbk.eu/technologies/smartwatch-gestures-dataset is used in this project.
