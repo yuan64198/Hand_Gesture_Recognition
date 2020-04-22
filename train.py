@@ -8,7 +8,7 @@ from checkpoints import load_checkpoint
 from sklearn.model_selection import train_test_split
 
 MAX_LEN = 51
-NUM_EPOCHS = 100
+NUM_EPOCHS = 500
 CURRENT_EPOCH = 0
 
 def main():
@@ -19,11 +19,12 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     start_epoch = load_checkpoint(args.checkpoint, model, optimizer)
     if args.mode == "train":
-        X_train, X_valid, y_train, y_valid = build_dataset()
+        X_train, X_valid, y_train, y_valid = load_train_data()
         train(start_epoch, start_epoch+NUM_EPOCHS+1, model, criterion, optimizer, device, X_train, X_valid, y_train, y_valid)
     if args.mode == "test":
         X, y = load_test_data()
-        predict(X, y, model)        
+        test(X, y, model)
+        
     
 
 def train( start_epoch, end_epoch, model, criterion, optimizer, device, X_train, X_valid, y_train, y_valid):
@@ -34,18 +35,27 @@ def train( start_epoch, end_epoch, model, criterion, optimizer, device, X_train,
         loss = criterion(output, y_train)
         loss.backward() # Does backpropagation and calculates gradients
         optimizer.step() # Updates the weights accordingly
-        accuracy = predict(X_valid, y_valid, model)
+        accuracy = test(X_valid, y_valid, model)
         print_loss_accuracy(epoch, loss.item(), accuracy,every = 10)
         save_checkpoint( { "epoch": epoch+1, "state_dict": model.state_dict(), "optimizer": optimizer.state_dict()}, every = 25)
 
-def predict(X, y, model):
+def test(X, y, model):
     output = model(X)
-    y_pred = output.argmax(dim=1, keepdim=True)
+    
+    y_pred = output.argmax(dim=1)
+    
     correct = y_pred.eq(y.view_as(y_pred)).sum().item()
     accuracy = correct/y_pred.size(0)*100
-    print("Testing Accuracy: {:.2f}".format(accuracy))
+    print("Testing Accuracy: {:2f}%".format(accuracy))
+    return accuracy
 
-def build_dataset():
+def print_loss_accuracy( epoch, loss, accuracy, every):
+    if epoch%every==0:
+        print('Epoch: {}/{}.............'.format(epoch, epoch+NUM_EPOCHS), end=' ')
+        print("Loss: {:.4f}".format(loss), end=' ')
+        print("Accuracy: {:.2f}%".format(accuracy))
+
+def load_train_data():
     X = []
     y = []
     for user_id in range(1, 9):
@@ -56,11 +66,10 @@ def build_dataset():
                 arr = arr[:, 3:]
                 padding = np.zeros((MAX_LEN, 3))
                 padding[:arr.shape[0], :arr.shape[1]] = arr
+                padding = np.transpose(padding)
                 X.append(padding)
-                one_hot = np.zeros(20)
-                one_hot[label-1] = 1
                 y.append(label-1)
-    X = np.asarray(X).reshape(len(X), 3, MAX_LEN)
+    X = np.asarray(X)
     y = np.asarray(y)
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=87)
@@ -70,12 +79,6 @@ def build_dataset():
     y_test = torch.from_numpy(y_test).long()
 
     return X_train, X_test, y_train, y_test
-
-def print_loss_accuracy( epoch, loss, accuracy, every):
-    if epoch%every==0:
-        print('Epoch: {}/{}.............'.format(epoch, NUM_EPOCHS), end=' ')
-        print("Loss: {:.4f}".format(loss), end=' ')
-        print("Accuracy: {:.2f}%".format(accuracy))
 
 def load_test_data():
     X = []
@@ -90,11 +93,10 @@ def load_test_data():
                 arr = arr[:, 3:]
                 padding = np.zeros((MAX_LEN, 3))
                 padding[:arr.shape[0], :arr.shape[1]] = arr
+                padding = np.transpose(padding)
                 X.append(padding)
-                one_hot = np.zeros(20)
-                one_hot[label-1] = 1
                 y.append(label-1)
-    X = np.asarray(X).reshape(len(X), 3, MAX_LEN)
+    X = np.asarray(X)
     y = np.asarray(y)
     
     X = torch.from_numpy(X).float()
